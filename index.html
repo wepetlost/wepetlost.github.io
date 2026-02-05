@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta property="og:title" content="ตามหาเจ้าโบ้ 🐶 หายบริเวณ..." />
+  <meta property="og:description" content="หายวันที่ 1 ก.พ. 2569 ใครพบเห็นโทร..." />
+  <meta property="og:image" content="https://playgameallday.github.io/shareWEB.png" />
+  <meta property="og:url" content="https://playgameallday.github.io" />
+  <meta property="og:type" content="website" />
+  
+<title>Find my Pet</title>
+
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" sizes="192x192" href="icon-192.png">
+<link rel="icon" sizes="512x512" href="icon-512.png">
+
+<link rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+<div id="authBar" class="auth-bar">
+  <button id="loginBtn" onclick="loginGoogle()">ล็อกอิน ด้วย Google</button>
+
+  <div id="userBox" class="user-box" style="display:none">
+    <img id="userAvatar" class="avatar">
+    <span id="userName"></span>
+    <button onclick="logout()">ล็อกเอาท์</button>
+  </div>
+</div>
+
+<div id="marker-shortcut"></div>
+
+<style>
+  body { margin:0; font-family: system-ui, sans-serif; }
+  
+  #map { height:100vh; }
+
+
+/*------------Add From---------------*/
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 1000;
+
+    /* เพิ่ม */
+    padding: 12px;
+    overflow-y: auto;   /* ⭐ กันล้นจอ */
+  }
+
+  .modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  @media (max-width: 600px) {
+    .modal-box {
+      max-width: none;
+      width: 100%;
+      height: 100%;
+      max-height: none;
+      border-radius: 0;
+    }
+  }
+
+  .field { margin-bottom:10px; }
+  
+  label {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #e9ecef;
+  color: #000;
+  border-radius: 2000px; /* pill */
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  }
+  
+  input, select {
+    width:100%;
+    padding:8px;
+	font-size: 14px;
+    border-radius:8px;
+    border:1px solid #ccc;
+  }
+
+  .actions { display:flex; gap:8px; margin-top:10px; }
+  button {
+    flex:1;
+    padding:10px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+  }
+  .save { background:#ff5b5b; color:#fff; }
+/*----------------------------*/  
+  
+/*----------------------------*/
+.pet-marker {
+  position: relative;
+  width: 46px;
+  height: 46px;
+}
+
+/* ป้ายวัน */
+.pet-marker .day-label {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+
+  background: #e53935;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+
+/* วงรูป */
+.pet-avatar {
+  width: 46px;
+  height: 46px;
+
+  border-radius: 50%;
+  overflow: hidden;        /* ⭐ ตัดเฉพาะรูป */
+  background: white;
+  border: 3px solid #4caf50;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pet-marker.ตามหาสัตว์ .pet-avatar {
+  border-color: #e53935;
+}
+.pet-marker.ตามหาเจ้าของ .pet-avatar {
+  border-color: #4caf50;
+}
+.pet-marker.ตามหาสัตว์ .day-label {
+  background: #e53935;
+}
+.pet-marker.ตามหาเจ้าของ .day-label {
+  background: #4caf50;
+}
+
+.pet-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+
+/*----------------------------*/
+
+/*-- Popup Pet Informaiom --*/
+
+.popup-gallery {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.popup-thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+
+  .popup {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .popup-img-wrap {
+    width: 100%;
+    height: auto;          /* ⭐ เปลี่ยนจาก fix height */
+  }
+
+  .popup-img {
+    width: 100%;
+    height: auto;          /* ⭐ ให้รูปดันกรอบ */
+    display: block;
+  }
+  
+.leaflet-popup-content-wrapper {
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.leaflet-popup-content {
+  width: 325px !important; /* ⭐ ปรับความกว้างกรอบ popup */
+  max-width: 500px;
+}
+
+/*----------------------------*/
+  
+/*-- login button --*/
+.auth-bar {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  padding: 6px 10px;
+  border-radius: 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+button {
+  border: none;
+  padding: 6px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+}
+/*----------------------------*/
+
+/*-- Location Button Style --*/
+.loc-btn {
+  background: #fff;
+  border: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  font-size: 30px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.25);
+}
+.leaflet-bottom.leaflet-right .loc-btn {
+  margin-bottom: 60px;
+  margin-right: 20px;
+}    
+/*----------------------------*/
+
+/*-- add pet header --*/
+  .modal-box h2 {
+  display: inline-block;
+  background: #FFE412;
+  color: #e65100;
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 600;
+  }
+/*----------------------------*/   
+
+/*-- close popup button --*/
+  .close-btn {
+  background: #999;
+  color: #fff;
+  }
+  
+/*-- disable X popup --*/
+  .leaflet-popup-close-button {
+  display: none;
+}
+  
+.copy-btn {
+  background: #999;
+  color: #fff;
+}  
+
+.copylink-btn {
+  background: #999;
+  color: #fff;
+}  
+
+.preview-container {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.preview-container img {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+#marker-shortcut {
+  position: fixed;
+  bottom: 60px;
+  left: 20px;
+  display: flex;
+  flex-direction: column-reverse; /* ดันจากล่างขึ้นบน */
+  gap: 10px;
+  z-index: 1000;
+}
+
+.marker-btn {
+  width: 50px;
+  height: 50px;
+  padding: 2px;
+  border-radius: 50%;
+  background: white;
+}
+
+.marker-btn img {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+  
+  
+.day-filter-control {
+  margin-bottom: 70px; /* ดันขึ้นเหนือปุ่ม location */
+}
+
+.day-filter-control select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+  
+  
+.pettype-filter-control {
+  margin-bottom: 70px; /* ดันขึ้นเหนือปุ่ม location */
+}
+
+.pettype-filter-control select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}  
+
+.animal-filter-control {
+  margin-bottom: 70px; /* ดันขึ้นเหนือปุ่ม location */
+}
+
+.animal-filter-control select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}  
+  
+  
+.pet-counter {
+  text-align: center;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.pet-counter .titlelost {
+  font-size: 16px;
+  font-weight: bold;
+  color: #e53935;
+}
+.pet-counter .titlefound {
+  font-size: 16px;
+  font-weight: bold;
+  color: #4caf50;
+}
+
+.pet-counter .countlost {
+  font-size: 14px;
+  color: #e53935;
+}
+
+.pet-counter .countfound {
+  font-size: 14px;
+  color: #4caf50;
+}
+
+  
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  
+  z-index: 99999; /* ต้องมากกว่า Leaflet */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome-box {
+  text-align: center;
+}
+
+.welcome-box img {
+  max-width: 90vw;
+  max-height: 80vh;
+  border-radius: 12px;
+  display: block;
+}
+
+.welcome-box button {
+  margin-top: 12px;
+  padding: 6px 16px;
+  font-size: 26px;
+  color: #fff;
+  background: #808080;
+}
+
+.welcome-box button:hover {
+  background: #D3D3D3;
+}
+  
+  
+.welcome2-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  
+  z-index: 99999; /* ต้องมากกว่า Leaflet */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome2-box {
+  text-align: center;
+}
+
+.welcome2-box img {
+  max-width: 90vw;
+  max-height: 80vh;
+  border-radius: 12px;
+  display: block;
+}
+
+.welcome2-box button {
+  margin-top: 12px;
+  padding: 6px 16px;
+  font-size: 26px;
+  color: #fff;
+  background: #808080;
+}
+
+.welcome2-box button:hover {
+  background: #D3D3D3;
+}
+  
+  
+</style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<div id="welcomeOverlay" class="welcome-overlay" style="display:none">
+  <div class="welcome-box">
+    <img src="greeting.png" alt="welcome">
+    <button onclick="closeWelcome()">ปิด</button>
+  </div>
+</div>
+
+<div id="welcomeOverlay2" class="welcome2-overlay" style="display:none">
+  <div class="welcome2-box">
+    <img src="greeting2.png" alt="welcome2">
+    <button onclick="closeWelcome2()">ปิด</button>
+  </div>
+</div>
+
+
+<!-- ===== Modal ===== -->
+<div class="modal" id="petModal">
+  <div class="modal-box">
+    <h2>เพิ่มสัตว์เลี้ยง</h2>
+
+    <div class="field">
+      <label>สถานะ</label>
+      <select id="type">
+        <option value="ตามหาสัตว์">ตามหาสัตว์</option>
+        <option value="ตามหาเจ้าของ">ตามหาเจ้าของ</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>สัตว์</label>
+      <select id="animal" onchange="toggleOtherAnimal()">
+        <option value="สุนัข">สุนัข</option>
+        <option value="แมว">แมว</option>
+        <option value="อื่นๆ">อื่นๆ</option>
+      </select>
+    </div>
+
+    <div class="field" id="otherAnimalField" style="display:none">
+      <label>ระบุชนิดสัตว์</label>
+      <input id="otherAnimal" placeholder="เช่น นก / กระต่าย / เต่า">
+    </div>
+
+	<div class="field">
+      <label>ชื่อสัตว์</label>
+      <input id="petName" placeholder="เช่น โบโบ้ / มะลิ">
+    </div>
+
+    <div class="field">
+      <label>สายพันธุ์</label>
+      <input id="breed" placeholder="เช่น ไทยผสม">
+    </div>
+
+    <div class="field">
+      <label>สี</label>
+      <input id="color" placeholder="ขาว / ดำ / น้ำตาล">
+    </div>
+
+    <div class="field">
+      <label>วันที่</label>
+      <input type="date" id="date">
+    </div>
+
+    <div class="field">
+      <label>ติดต่อ</label>
+      <input id="contact" placeholder="เบอร์โทร / LINE">
+    </div>
+<!-- ===== Modal ===== --
+    <div class="field">
+	  <label>รูปสัตว์</label>
+	  <input type="file" id="imageFile" accept="image/jpeg, image/png">
+	</div>
+	-->
+	<div class="field">
+	  <label>รูปสัตว์ (ไม่เกิน 5 รูป)</label>
+	  <input
+	  type="file"
+	  id="images"
+	  accept="image/*"
+	  multiple
+	  >
+      <div id="imagePreview" class="preview-container"></div>
+    </div>
+	
+	<div class="field">
+	  <label>ข้อมูลเพิ่มเติม</label>
+	  <input id="animalDetail" placeholder="รายละเอียดเพิ่มเติม">
+	</div>
+
+    <div class="actions">
+      <button class="cancel" onclick="closeModal()">ยกเลิก</button>
+      <button class="save" onclick="savePet()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+function closeWelcome() {
+  //close self
+  document.getElementById("welcomeOverlay").style.display = "none";
+  //open welcomeOverlay2
+  //document.getElementById("welcomeOverlay2").style.display = "flex";
+}
+
+function closeWelcome2() {
+  //close self
+  document.getElementById("welcomeOverlay2").style.display = "none";
+  //flyToPet();
+}
+
+window.addEventListener("load", () => {
+  //open welcomeOverlay
+  document.getElementById("welcomeOverlay").style.display = "flex";
+});
+
+/* ========== Protect uploadImages <5 ========== */
+const imageInput = document.getElementById('images');
+const preview = document.getElementById('imagePreview');
+
+imageInput.addEventListener('change', () => {
+  preview.innerHTML = '';
+
+  const files = Array.from(imageInput.files);
+
+  if (files.length > 5) {
+    alert("เลือกได้ไม่เกิน 5 รูป");
+    imageInput.value = '';   // reset
+    return;
+  }
+
+  files.forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    preview.appendChild(img);
+  });
+});
+/* ========== uploadImages ========== */
+async function uploadImages(files, userId) {
+  const urls = [];
+
+  for (const file of files) {
+    const ext = file.name.split('.').pop();
+    const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error } = await supabaseClient
+      .storage
+      .from('pets')
+      .upload(fileName, file);
+
+    if (error) {
+      console.error("Upload error:", error);
+      continue;
+    }
+
+    const { data } = supabaseClient
+      .storage
+      .from('pets')
+      .getPublicUrl(fileName);
+
+    urls.push(data.publicUrl);
+  }
+
+  return urls;
+}
+const DEFAULT_DAYS = 7;
+
+/* ========== User Location ========== */
+function locateUser() {
+  if (!navigator.geolocation) {
+    alert("อุปกรณ์ไม่รองรับ GPS");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      map.setView([lat, lng], 17);
+      
+	  map.whenReady(() => {
+	  loadPets(DEFAULT_DAYS,"","");
+	  });
+	  
+      // ลบ marker เก่า (ถ้ามี)
+      if (window.myLocationMarker) {
+        map.removeLayer(window.myLocationMarker);
+      }
+
+      window.myLocationMarker = L.circleMarker([lat, lng], {
+        radius: 8,
+        color: "#1976d2",
+        fillColor: "#2196f3",
+        fillOpacity: 0.8
+      })
+        .addTo(map)
+        .bindPopup("📍 ตำแหน่งของคุณ")
+        .openPopup();
+    },
+    (err) => {
+      alert("ไม่สามารถดึงตำแหน่งได้");
+      console.error(err);
+    },
+    { enableHighAccuracy: true }
+  );
+}
+
+/* ========== SUPABASE ========== */
+//window.supabase = supabase.createClient(
+const { createClient } = supabase;
+const supabaseClient = createClient(
+  "https://dezfgeywkwwbhiabsawq.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlemZnZXl3a3d3YmhpYWJzYXdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyOTQyNTksImV4cCI6MjA4NTg3MDI1OX0.iqaCCEG62QsMUHesF7UHH2x3AkPrudKzKPnXW-K3kPI"
+);
+
+async function loginGoogle() {
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+	options: {
+      redirectTo: window.location.origin
+    }
+  });
+
+  if (error) {
+    alert("Login failed");
+    console.error(error);
+  }
+}
+
+let currentUser = null;
+
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  currentUser = session?.user || null;
+  updateUI();
+  
+  flyToPet();
+  
+  const loginBtn = document.getElementById("loginBtn");
+  const userBox = document.getElementById("userBox");
+
+  if (session?.user) {
+    const user = session.user;
+
+    loginBtn.style.display = "none";
+    userBox.style.display = "flex";
+
+    document.getElementById("userName").textContent =
+      user.user_metadata.full_name || user.email;
+
+    document.getElementById("userAvatar").src =
+      user.user_metadata.avatar_url || "";
+  } else {
+    loginBtn.style.display = "inline-block";
+    userBox.style.display = "none";
+  }
+  //console.log("currentUser1:",currentUser); 
+  Createshortcut(currentUser);
+});
+
+function updateUI() {
+  if (currentUser) {
+    console.log("Login แล้ว:", currentUser.email);
+  } else {
+    console.log("ยังไม่ login");
+  }
+}
+async function logout() {
+  const { error } = await supabaseClient.auth.signOut();
+  //location.reload();
+}
+
+
+
+
+
+/* ========== LOAD MAP ========== */
+const map = L.map('map').setView([13.7563,100.5018],13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'© OpenStreetMap'
+}).addTo(map);
+/* ==================== */
+
+/* ========== Click on Map For Post========== */
+let clickLatLng = null;
+
+map.on('click', e => {
+  clickLatLng = e.latlng;
+  openModal();
+});
+/* ==================== */
+
+/* ========== Can't post if not login ========== */
+map.on('click', e => {
+  if (!currentUser) {
+    alert("กรุณา Login ด้วย Google ก่อนปักหมุด");
+    //loginGoogle();
+	closeModal()
+    return;
+  }
+
+  clickLatLng = e.latlng;
+  openModal();
+});
+/* ==================== */
+
+//////////ADD find location BTN/////////////
+const locateControl = L.control({ position: "bottomright" });
+
+locateControl.onAdd = () => {
+  const btn = L.DomUtil.create("button", "loc-btn");
+  btn.innerHTML = "📍";
+  
+  // ❗ กันคลิกทะลุไป map
+  L.DomEvent.disableClickPropagation(btn);
+  L.DomEvent.disableScrollPropagation(btn);
+  
+  //btn.onclick = () => locateUser();
+  btn.onclick = function (e) {
+    e.preventDefault();
+    e.stopPropagation();   // ← กันอีกรอบ
+    locateUser();
+  };
+  
+  
+  
+  return btn;
+};
+
+locateControl.addTo(map);
+
+//////////ADD day filter BTN/////////////
+const dayFilterControl = L.control({ position: "bottomright" });
+
+dayFilterControl.onAdd = function () {
+  const div = L.DomUtil.create("div", "day-filter-control");
+
+  div.innerHTML = `
+    <select id="dayfilter">     
+      <option value="1">1 วัน</option>
+      <option value="3">3 วัน</option>
+      <option value="7" selected>7 วัน</option>
+      <option value="15">15 วัน</option>
+      <option value="30">1 เดือน</option>
+      <option value="90">3 เดือน</option>
+      <option value="180">6 เดือน</option>
+      <option value="365">1 ปี</option>
+      <option value="730">2 ปี</option>
+	  <option value="">ทั้งหมด</option>
+    </select>
+  `;
+
+  // กัน map เลื่อนตอนแตะ dropdown (สำคัญมากบนมือถือ)
+  L.DomEvent.disableClickPropagation(div);
+  L.DomEvent.disableScrollPropagation(div);
+
+  return div;
+};
+
+dayFilterControl.addTo(map);
+
+//////////ADD animal filter BTN/////////////
+const animalFilterControl = L.control({ position: "bottomright" });
+
+animalFilterControl.onAdd = function () {
+  const div = L.DomUtil.create("div", "animal-filter-control");
+
+  div.innerHTML = `
+    <select id="animalfilter">     
+      <option value="" selected>ทั้งหมด</option>
+      <option value="สุนัข">สุนัข</option>
+	  <option value="แมว">แมว</option>
+	  <option value="อื่นๆ">อื่นๆ</option>
+    </select>
+  `;
+
+  // กัน map เลื่อนตอนแตะ dropdown (สำคัญมากบนมือถือ)
+  L.DomEvent.disableClickPropagation(div);
+  L.DomEvent.disableScrollPropagation(div);
+
+  return div;
+};
+
+animalFilterControl.addTo(map);
+
+//////////ADD type filter BTN/////////////
+const typeFilterControl = L.control({ position: "bottomright" });
+
+typeFilterControl.onAdd = function () {
+  const div = L.DomUtil.create("div", "pettype-filter-control");
+
+  div.innerHTML = `
+    <select id="typefilter">     
+      <option value="" selected>ทั้งหมด</option>
+      <option value="ตามหาสัตว์">ตามหาสัตว์</option>
+	  <option value="ตามหาเจ้าของ">ตามหาเจ้าของ</option>
+    </select>
+  `;
+
+  // กัน map เลื่อนตอนแตะ dropdown (สำคัญมากบนมือถือ)
+  L.DomEvent.disableClickPropagation(div);
+  L.DomEvent.disableScrollPropagation(div);
+
+  return div;
+};
+
+typeFilterControl.addTo(map);
+
+
+//////////ADD Count pin/////////////
+const displayFilterControl = L.control({ position: "bottomright" });
+
+displayFilterControl.onAdd = function () {
+  const div = L.DomUtil.create("div", "display-filter-control");
+
+  div.innerHTML = `
+    <div class="pet-counter">
+      <div class="titlelost">ตามหาสัตว์</div>
+      <div class="countlost">
+        <span id="petlostCount">0</span> ตัว
+      </div>
+	  <div class="titlefound">ตามหาเจ้าของ</div>
+      <div class="countfound">
+        <span id="petfoundCount">0</span> ตัว
+      </div>
+	  
+    </div>
+  `;
+
+  // กัน map เลื่อนตอนแตะ dropdown (สำคัญมากบนมือถือ)
+  L.DomEvent.disableClickPropagation(div);
+  L.DomEvent.disableScrollPropagation(div);
+
+  return div;
+};
+
+displayFilterControl.addTo(map);
+
+
+/* ========== MODAL ========== */
+function openModal(){
+  document.getElementById('petModal').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('petModal').classList.remove('show');
+}
+function toggleOtherAnimal(){
+  const v = document.getElementById('animal').value;
+  document.getElementById('otherAnimalField').style.display =
+    v === 'อื่นๆ' ? 'block' : 'none';
+}
+//let petAmoung = DEFAULT_DAYS;
+
+/* ========== SAVE ========== */
+async function savePet(){
+  if(!clickLatLng) return;
+  
+  const { count, error: countError } = await supabaseClient
+  .from("pets")
+  .select("*", { count: "exact", head: true })
+  .eq("user_id", currentUser.id);
+
+  if (countError) {
+    alert("เช็คจำนวนหมุดไม่สำเร็จ");
+    return;
+  }
+
+  if (count >= 3) {
+    alert("คุณปักหมุดได้ไม่เกิน 3 จุด");
+    return;
+  }
+  
+  const animalSel = document.getElementById('animal').value;
+  const animal =
+    animalSel === 'อื่นๆ'
+      ? document.getElementById('otherAnimal').value
+      : animalSel;
+  //console.log("animalSel", animalSel);
+  //console.log("animal", animal);
+    const { data: { user } } =
+      await supabaseClient.auth.getUser();
+
+    const files = Array.from(
+      document.getElementById('images').files
+    );
+
+    if (files.length > 5) {
+      alert("รูปเกิน 5 รูป");
+      return;
+    }
+
+    const imageUrl = await uploadImages(files, user.id);
+	
+
+  /* ===== SAVE TO DB ===== */
+  const today = new Date().toISOString().split('T')[0];
+  const pet = {
+    type: document.getElementById('type').value,          // สถานะ
+    animal: animal,                                      // สัตว์
+    name: document.getElementById('petName').value,      // ชื่อสัตว์
+    breed: document.getElementById('breed').value,       // สายพันธุ์
+    color: document.getElementById('color').value,       // สี
+    date: document.getElementById('date').value || today,         // วันที่
+    contact: document.getElementById('contact').value,   // ติดต่อ
+	detail: document.getElementById('animalDetail').value,   // ข้อมูลเพิ่มเติม
+    image: imageUrl,       // รูป URL
+    lat: clickLatLng.lat,
+    lng: clickLatLng.lng,
+	//user_name: currentUser.email,
+	user_id: currentUser.id
+  };
+
+  const { error } = await supabaseClient
+    .from("pets")
+    .insert([pet]);
+
+  if(error){
+    alert("บันทึกไม่สำเร็จ");
+    console.error(error);
+    return;
+  }
+  await updatePetID();
+  //addMarker(pet);
+  closeModal();
+  //loadPets(DEFAULT_DAYS);
+  const dayValue = document.getElementById("dayfilter").value;
+  const typeValue = document.getElementById("typefilter").value;
+  const animalValue = document.getElementById("animalfilter").value;
+
+  const days = dayValue ? Number(dayValue) : null;
+  const pettype = typeValue || null;
+  const animalV = animalValue || null;
+
+  loadPets(days, pettype, animalV);
+  Createshortcut(currentUser);
+}
+
+
+
+
+
+/*document.addEventListener("change", (e) => {
+  if (e.target.id === "dayfilter") {
+    const days = e.target.value;
+    loadPets(days ? Number(days) : null);
+  }
+});
+
+document.addEventListener("change", (e) => {
+  if (e.target.id === "dayfilter" || e.target.id === "typefilter") {
+    const days = e.target.value;
+	const pettype = e.target.value;
+    loadPets(days ? Number(days) : null, pettype ? pettype : null);
+  }
+});
+*/
+document.addEventListener("change", () => {
+  const dayValue = document.getElementById("dayfilter").value;
+  const typeValue = document.getElementById("typefilter").value;
+  const animalValue = document.getElementById("animalfilter").value;
+
+  const days = dayValue ? Number(dayValue) : null;
+  const pettype = typeValue || null;
+  const animalV = animalValue || null;
+
+  loadPets(days, pettype, animalV);
+});
+
+
+
+/* ========== LOAD PET========== */
+let loginUser = null;
+
+async function loadPets(maxDays = null, petType = null, animalV= null) {
+  //console.log("maxDays", maxDays);
+  //console.log("petType", petType);
+  //console.log("animal", animalV);
+  clearMarkers(); // ⭐ ลบหมุดเก่าก่อนทุกครั้ง
+
+  let lost = 0; // ⭐ ตัวนับหมุด
+  let found = 0; // ⭐ ตัวนับหมุด
+
+  const {
+    data: { user }
+  } = await supabaseClient.auth.getUser();
+  loginUser = user;
+
+  const { data, error } = await supabaseClient
+    .from("pets")
+    .select("*");
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  data.forEach(pet => {
+
+     // filter วัน
+    if (maxDays !== null && !isWithinDays(pet.date, maxDays)) return;
+
+    // filter lost/found
+    if (petType !== null && pet.type !== petType) return;
+/*	
+	// filter ชนิดสัตว์ หมา แมว
+	if (animalV !== null && pet.animal !== animalV) return;
+	
+	// filter ชนิดสัตว์ อื่นๆ
+	if (animalV == "อื่นๆ" && (pet.animal == "สุนัข" || pet.animal == "แมว")) return;
+    //console.log("pet.animal", pet.animal);
+	
+*/
+    // แสดงทั้งหมด
+	if (!animalV) {
+	// ไม่ต้อง return ปล่อยผ่าน
+	}
+
+	// แสดงเฉพาะสุนัข หรือ แมว
+	else if (animalV === "สุนัข" || animalV === "แมว") {
+	  if (pet.animal !== animalV) return;
+	}
+
+	// แสดงที่ไม่ใช่หมาและแมว
+	else if (animalV === "อื่นๆ") {
+	  if (pet.animal === "สุนัข" || pet.animal === "แมว") return;
+	}
+	
+/*	// แสดงที่ไม่ใช่หมาและแมว
+	else {
+	  if (pet.animal === "สุนัข" || pet.animal === "แมว") return;
+	}
+*/
+    addMarker(pet);
+
+    // ⭐ นับตามสถานะ
+    if (pet.type === "ตามหาสัตว์")lost++;
+    if (pet.type === "ตามหาเจ้าของ") found++;
+  });
+  
+  // อัปเดตตัวเลข
+  document.getElementById("petlostCount").textContent = lost;
+  document.getElementById("petfoundCount").textContent = found;
+  
+}
+
+
+function isWithinDays(dateStr, days) {
+  const petDate = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor(
+    (now - petDate) / (1000 * 60 * 60 * 24)
+  );
+  return diffDays <= days;
+}
+
+//const markers = {};
+let markers = {};
+
+function clearMarkers() {
+  Object.values(markers).forEach(marker => {
+    map.removeLayer(marker);
+  });
+  markers = {};
+}
+
+function addMarker(pet) {
+
+  const images = normalizeImages(pet.image);
+  //console.log("images:", images[0]);
+  //const icon = createPetIcon("https://playgameallday.github.io/paw.png");
+  const icon = createPetIcon(pet, images[0]);
+  //console.log("icon:", icon);
+  
+  const gallery = images.map(url => `
+  <img
+    src="${url}"
+    class="popup-thumb"
+    onclick="openImage('${url}')"
+  >
+  `).join('');
+  
+  let popupHtml = `
+    <div class="popup">
+      <div class="popup-gallery">
+        ${gallery || 'ไม่มีรูป'}
+      </div>
+
+      <div class="popup-info">
+        <b>[${pet.type}]</b><br>
+        PetID: ${pet.petID}<br>
+		สัตว์: ${pet.animal}<br>
+        ชื่อ: ${pet.name}<br>
+        สายพันธุ์: ${pet.breed}<br>
+        สี: ${pet.color}<br>
+        วันที่: ${pet.date}<br>
+        ติดต่อ: ${pet.contact}<br>
+        ข้อมูลเพิ่มเติม: ${pet.detail}<br>
+  `;
+
+  // ✅ แสดงปุ่มลบเฉพาะเจ้าของ
+  if (currentUser && pet.user_id === currentUser.id) {
+    popupHtml += `
+        <button
+         class="delete-btn"
+         data-id="${pet.id}"
+         style="
+         margin-top:8px;
+         background:#ff4d4f;
+         color:#fff;
+         border:none;
+         padding:6px 10px;
+         border-radius:6px;
+         cursor:pointer;
+       "
+      >
+    🗑️ ลบหมุด
+        </button>
+    `;
+  }
+
+  popupHtml += `
+        
+		<button class="copylink-btn"
+          onclick="copylink(${pet.petID})">
+          📣 คัดลอก<br>เพื่อแชร์
+        </button>
+		
+		<button class="copy-btn"
+          onclick="copyLocation(${pet.lat}, ${pet.lng})">
+          📋 คัดลอก<br>ตำแหน่ง
+        </button>
+		
+		<button class="close-btn" onclick="closePopup()">
+          ✖ ปิด
+        </button>
+			
+      </div>
+    </div>
+  `;
+  
+  
+   marker = L.marker([pet.lat, pet.lng], { icon })
+    .addTo(map)
+    .bindPopup(popupHtml);
+	
+	
+  marker.on("popupopen", (e) => {
+    const popupEl = e.popup.getElement();
+    const btn = popupEl.querySelector(".delete-btn");
+    if (!btn) return;
+
+    btn.onclick = () => {
+      const petId = btn.dataset.id;
+      deletePet(petId);
+    };
+  });
+
+	
+   markers[pet.id] = marker;
+}
+
+function normalizeImages(image) {
+  if (Array.isArray(image)) return image;
+
+  if (typeof image === "string") {
+    // ถ้าเป็น JSON string
+    if (image.startsWith("[")) {
+      try {
+        return JSON.parse(image);
+      } catch {
+        return [];
+      }
+    }
+    // เป็น url เดี่ยว
+    return [image];
+  }
+
+  return [];
+}
+
+function extractStoragePath(url) {
+  const marker = "/storage/v1/object/public/pets/";
+  const index = url.indexOf(marker);
+  if (index === -1) return null;
+  return url.substring(index + marker.length);
+}
+
+/* ========== deletePet ========== */
+
+
+async function deletePet(petId) {
+
+  if (!petId) {
+    alert("ไม่พบ ID หมุด");
+    return;
+  }
+  
+  // 🔥 ถามยืนยันก่อนลบ
+  const ok = confirm("ต้องการลบหมุดนี้จริงหรือไม่?\nการลบไม่สามารถกู้คืนได้");
+
+  if (!ok) return; // ผู้ใช้กดยกเลิก
+  
+  //if (!confirm("ยืนยันลบหมุดนี้และรูปทั้งหมด?")) return;
+  
+  
+
+  // 1. ดึงข้อมูลหมุดก่อน (เพื่อรู้ path รูป)
+  const { data: pet, error: fetchError } = await supabaseClient
+    .from("pets")
+    .select("image")
+    .eq("id", petId)
+    .single();
+
+  if (fetchError) {
+    alert("ดึงข้อมูลรูปไม่สำเร็จ");
+    console.error(fetchError);
+    return;
+  }
+
+  // 2. normalize รูปให้เป็น array
+  const images = normalizeImages(pet.image);
+  const paths = images
+  .map(img => extractStoragePath(img))
+  .filter(Boolean);
+
+  // 3. ลบรูปจาก Storage
+  if (paths.length > 0) {
+    const { error: storageError } = await supabaseClient
+      .storage
+      .from("pets") // ← ชื่อ bucket
+      .remove(paths);
+
+    if (storageError) {
+      alert("ลบรูปไม่สำเร็จ");
+      console.error(storageError);
+      return;
+    }
+  }
+
+  // 4. ลบแถวใน DB
+  const { error: deleteError } = await supabaseClient
+    .from("pets")
+    .delete()
+    .eq("id", petId);
+/*
+  if (deleteError) {
+    alert("ลบหมุดไม่สำเร็จ");
+    console.error(deleteError);
+    return;
+  }
+*/  
+  if (deleteError) {
+    alert('ลบไม่ได้: ' + error.message);
+	location.reload();
+	return;
+  } else {
+  
+    const dayValue = document.getElementById("dayfilter").value;
+    const typeValue = document.getElementById("typefilter").value;
+    const animalValue = document.getElementById("animalfilter").value;
+
+    const days = dayValue ? Number(dayValue) : null;
+    const pettype = typeValue || null;
+    const animalV = animalValue || null;
+
+    loadPets(days, pettype, animalV);
+    Createshortcut(currentUser); 
+    //loadPets(DEFAULT_DAYS);
+    alert('ลบเรียบร้อย');
+  }
+
+  //alert("ลบหมุดและรูปเรียบร้อย");
+
+  // 5. ลบ marker ออกจากแผนที่
+  if (markers[petId]) {
+    map.removeLayer(markers[petId]);
+    delete markers[petId];
+  }
+}
+
+/* ========== closePopup ========== */
+function closePopup() {
+  map.closePopup();
+}
+/* ========== copyPopup ========== */
+function copyLocation(lat, lng) {
+  const text = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+  navigator.clipboard.writeText(text)
+    .then(() => {
+      alert("คัดลอกตำแหน่งแล้ว:\n" + text);
+    })
+    .catch(() => {
+      alert("ไม่สามารถคัดลอกได้");
+    });
+}
+
+function copylink(petID) {
+  //const text = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  const text = "https://playgameallday.github.io/index.html?animalID=" + petID;
+  navigator.clipboard.writeText(text)
+    .then(() => {
+      alert("คัดลอกแล้ว:\n" + text);
+    })
+    .catch(() => {
+      alert("ไม่สามารถคัดลอกได้");
+    });
+}
+
+
+
+/* ========== PetIcon ========== */
+/*
+function createPetIcon(pet,image) {
+  return L.icon({
+    //iconUrl: pet.image?.[0] || pet.image || "paw.png",
+	iconUrl: image || "paw.png",
+    iconSize: [42, 42],
+    iconAnchor: [21, 42],
+    popupAnchor: [0, -42],
+    className: `pet-marker ${pet.type}` // lost / found
+  });
+}
+*/
+function createPetIcon(pet, imageUrl) {
+  const days = daysFromDate(pet.date);
+  const label = days === 0 ? "วันนี้" : `${days} วัน`;
+
+  const html = `
+    <div class="pet-marker ${pet.type}">
+      <div class="day-label">${label}</div>
+      <div class="pet-avatar">
+        <img src="${imageUrl || 'paw.png'}">
+      </div>
+    </div>
+  `;
+
+  return L.divIcon({
+    html,
+    className: "",
+    iconSize: [46, 46],
+    iconAnchor: [23, 46],
+    popupAnchor: [0, -42],
+  });
+}
+
+
+function daysFromDate(dateStr) {
+  const created = new Date(dateStr);
+  const now = new Date();
+
+  created.setHours(0,0,0,0);
+  now.setHours(0,0,0,0);
+
+  return Math.floor((now - created) / (1000 * 60 * 60 * 24));
+}
+
+function openImage(url) {
+  const overlay = document.createElement('div');
+  overlay.style = `
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.85);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:9999;
+  `;
+
+  overlay.innerHTML = `
+    <img src="${url}"
+      style="max-width:95%;max-height:95%;border-radius:12px">
+  `;
+
+  overlay.onclick = () => overlay.remove();
+  document.body.appendChild(overlay);
+}
+
+/* ========== Mark shortcut ========== */
+
+function shortcutIcon(iconUrl) {
+  return L.icon({
+    iconUrl,
+    iconSize: [42, 42],
+    iconAnchor: [21, 42],
+    popupAnchor: [0, -36]
+  });
+}
+
+/*
+async function updatePetID(){
+  const { data: pets, error } = await supabaseClient
+	 .from("pets")
+     .select("id")
+     .eq("user_id", currentUser.id)
+     .is("petID", null);
+	 .single();
+	 
+  const newID = pets.id;
+  
+  if (!currentUser) return;
+
+  const { data, error } = await supabaseClient
+    .from("pets")
+    .update({ petID: newID })
+    .eq("user_id", currentUser.id)
+    .eq("id", newID);
+
+  if (error) {
+    console.error("อัปเดต petID ไม่สำเร็จ:", error);
+    return;
+  }
+
+  console.log("อัปเดต petID สำเร็จ:", data);
+
+}*/
+async function updatePetID() {
+  if (!currentUser) return;
+
+  // 1️⃣ หาแถวที่ petID เป็น null (เอาแถวล่าสุด)
+  const { data: pet, error: fetchError } = await supabaseClient
+    .from("pets")
+    .select("id")
+    .eq("user_id", currentUser.id)
+    .is("petID", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (fetchError || !pet) {
+    console.log("ไม่พบ petID ที่เป็น null");
+    return;
+  }
+
+  // 2️⃣ update petID = id
+  const { error: updateError } = await supabaseClient
+    .from("pets")
+    .update({ petID: pet.id })
+    .eq("id", pet.id);
+
+  if (updateError) {
+    console.error("อัปเดต petID ไม่สำเร็จ:", updateError);
+    return;
+  }
+
+  console.log("อัปเดต petID สำเร็จ:", pet.id);
+}
+
+
+
+async function flyToPet(){
+
+  const params = new URLSearchParams(window.location.search);
+
+  const animalID = params.get("animalID");
+
+  //console.log(animalID); // dog
+
+  if (params.has("animalID")) {
+    //console.log("มี animalID");
+	
+	const { data: pets, error } = await supabaseClient
+     .from("pets")
+     .select("id, lat, lng")
+     .eq("id", animalID)
+	 .single();
+	 
+	map.flyTo(
+      [pets.lat, pets.lng],
+      17,
+      { animate: true, duration: 0.8 }
+    );
+	//console.log("Fly:", Number(animalID))
+	//console.log("lat:", pets.lat)
+	//console.log("lng:", pets.lng)
+	//markers[pets.id].openPopup?.();
+	//markers[Number(animalID)].openPopup?.();
+	
+  }
+
+}
+
+async function Createshortcut(currentUser) {
+//console.log("currentUser2:",currentUser);
+if (currentUser){
+//console.log("currentUser3:",currentUser);
+const { data: pets, error } = await supabaseClient
+  .from("pets")
+  .select("id, lat, lng, image, created_at")
+  .eq("user_id", currentUser.id)
+  .order("created_at", { ascending: false });
+
+if (error) {
+  console.error(error);
+  return;
+}
+
+//const userMarkers = [];   // เก็บ marker leaflet
+const userPets = [];     // เก็บข้อมูลจาก DB
+
+
+pets.forEach((pet) => {
+  /*
+  const images2 = normalizeImages(pet.image);
+  
+  const icon = shortcutIcon(images2[0]);
+
+  const marker = L.marker(
+    [pet.lat, pet.lng],
+    { icon }
+  ).addTo(map);
+
+  userMarkers.push(marker);*/
+  userPets.push(pet);
+});
+
+
+const shortcut = document.getElementById("marker-shortcut");
+shortcut.innerHTML = "";
+
+userPets.forEach((pet, index) => {
+  const btn = document.createElement("div");
+  btn.className = "marker-btn";
+
+  const img = document.createElement("img");
+  const images2 = normalizeImages(pet.image);
+
+  img.src = images2[0] || "paw.png";
+
+  btn.appendChild(img);
+
+  btn.onclick = () => {
+    map.flyTo(
+      [pet.lat, pet.lng],
+      17,
+      { animate: true, duration: 0.8 }
+    );
+	
+	//markers[pet.id].openPopup?.();
+    //userMarkers[index].openPopup?.();
+  };
+
+  shortcut.appendChild(btn);
+  //console.log("2:",pet.id);
+});
+
+
+}
+}
+  const dayValue = document.getElementById("dayfilter").value;
+  const typeValue = document.getElementById("typefilter").value;
+  const animalValue = document.getElementById("animalfilter").value;
+
+  const days = dayValue ? Number(dayValue) : null;
+  const pettype = typeValue || null;
+  const animalV = animalValue || null;
+
+  loadPets(days, pettype, animalV);
+  Createshortcut(currentUser);
+  //loadPets(DEFAULT_DAYS);
+</script>
+
+
+</body>
+</html>
