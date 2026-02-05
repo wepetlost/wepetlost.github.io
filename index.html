@@ -7,7 +7,7 @@
   <meta property="og:title" content="ตามหาเจ้าโบ้ 🐶 หายบริเวณ..." />
   <meta property="og:description" content="หายวันที่ 1 ก.พ. 2569 ใครพบเห็นโทร..." />
   <meta property="og:image" content="https://wepetlost.github.io/shareWEB.png" />
-  <meta property="og:url" content="https://wepetlost.github.io/" />
+  <meta property="og:url" content="https://wepetlost.github.io" />
   <meta property="og:type" content="website" />
   
 <title>Find my Pet</title>
@@ -53,7 +53,7 @@
   }
 
   .modal.show {
-    dis: flex;
+    display: flex;
     align-items: center;
     justify-content: center;
   }
@@ -71,7 +71,7 @@
   .field { margin-bottom:10px; }
   
   label {
-  dis: inline-block;
+  display: inline-block;
   padding: 4px 10px;
   background: #e9ecef;
   color: #000;
@@ -89,7 +89,7 @@
     border:1px solid #ccc;
   }
 
-  .actions { dis:flex; gap:8px; margin-top:10px; }
+  .actions { display:flex; gap:8px; margin-top:10px; }
   button {
     flex:1;
     padding:10px;
@@ -135,7 +135,7 @@
   background: white;
   border: 3px solid #4caf50;
 
-  dis: flex;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
@@ -157,7 +157,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  dis: block;
+  display: block;
 }
 
 
@@ -166,7 +166,7 @@
 /*-- Popup Pet Informaiom --*/
 
 .popup-gallery {
-  dis: flex;
+  display: flex;
   gap: 6px;
   overflow-x: auto;
 }
@@ -583,7 +583,7 @@ function closeWelcome() {
   //close self
   document.getElementById("welcomeOverlay").style.display = "none";
   //open welcomeOverlay2
-  //document.getElementById("welcomeOverlay2").style.display = "flex";
+  document.getElementById("welcomeOverlay2").style.display = "flex";
 }
 
 function closeWelcome2() {
@@ -695,8 +695,8 @@ function locateUser() {
 //window.supabase = supabase.createClient(
 const { createClient } = supabase;
 const supabaseClient = createClient(
-  "https://givnhkjheiqthyipjhxf.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdpdm5oa2poZWlxdGh5aXBqaHhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMDQwOTgsImV4cCI6MjA4NTg4MDA5OH0.Zp4n5Q2ilUDm5xHH4s0YOqQz3KDzEmatAtOuC9jveQw"
+  "https://mlftttqcgryduilanvws.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZnR0dHFjZ3J5ZHVpbGFudndzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNzg2MjksImV4cCI6MjA4NDc1NDYyOX0.hrDgj0rAgxySsxA5ntz43c8Bkr45_eMFSdCdW0DhIuE"
 );
 
 async function loginGoogle() {
