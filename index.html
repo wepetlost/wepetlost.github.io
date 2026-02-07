@@ -1383,7 +1383,7 @@ function copyLocation(lat, lng) {
 
 function copylink(petID) {
   //const text = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  const text = "https://wepetlost.github.io/index.html?animalID=" + petID;
+  const text = "https://wepetlost.github.io/?animalID=" + petID;
   navigator.clipboard.writeText(text)
     .then(() => {
       alert("คัดลอกแล้ว:\n" + text);
